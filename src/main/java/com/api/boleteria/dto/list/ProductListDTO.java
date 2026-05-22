@@ -4,5 +4,6 @@ public record ProductListDTO(
     Long id,
     String name,
     Double unitPrice,
+    Integer priceInPoints,
     String imageURL
 ) {}
