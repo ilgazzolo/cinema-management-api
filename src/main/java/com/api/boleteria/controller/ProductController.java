@@ -17,8 +17,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.api.boleteria.dto.detail.ProductDetailDTO;
+import com.api.boleteria.dto.list.CinemaListDTO;
 import com.api.boleteria.dto.list.ProductListDTO;
 import com.api.boleteria.dto.request.ProductRequestDTO;
+import com.api.boleteria.model.enums.ProductType;
+import com.api.boleteria.model.enums.ScreenType;
 import com.api.boleteria.service.ProductService;
 
 import jakarta.validation.Valid;
@@ -57,9 +60,14 @@ public class ProductController {
     }
 
     @GetMapping("/available/{available}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('CLIENT')")
     public ResponseEntity<List<ProductDetailDTO>> getByAvailableProduct(@PathVariable boolean available){
         List<ProductDetailDTO> list = service.findByAvailable(available);
+        return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("/productType/{productType}")
+    public ResponseEntity<List<ProductListDTO>> getByProductType(@PathVariable ProductType productType){
+        List<ProductListDTO> list = service.findByProductType(productType);
         return ResponseEntity.ok(list);
     }
 

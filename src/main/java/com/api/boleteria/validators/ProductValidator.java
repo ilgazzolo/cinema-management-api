@@ -10,8 +10,10 @@ public class ProductValidator {
         validateName(req.getName());
         validateStock(req.getStock());
         validateUnitPrice(req.getUnitPrice());
+        validatePriceInPoints(req.getPriceInPoints());
         validateImage(req.getImageURL());
         validateAvailable(req.getAvailable());
+        validateProductType(req.getProductType());
         validateDescription(req.getDescription());
     }
 
@@ -43,11 +45,24 @@ public class ProductValidator {
         }
     }
 
+    public static void validatePriceInPoints (Integer priceInPoints){
+        if(priceInPoints == null || priceInPoints < 0.00){
+            throw new BadRequestException("El precio en puntos no puede ser nulo o negativo.");
+        }
+    }
+
     public static void validateAvailable (Boolean av){
         if(av == null){
             throw new BadRequestException("Debe indicar si el producto esta disponible o no.");
         }
     }
+
+    public static void validateProductType(Object productType) {
+        if (productType == null) {
+            throw new BadRequestException("La categoria del producto no puede ser nula.");
+        }
+    }
+
 
     public static void validateDescription (String desc){
         if(desc == null){

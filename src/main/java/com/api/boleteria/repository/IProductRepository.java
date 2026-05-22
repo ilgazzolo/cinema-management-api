@@ -6,6 +6,8 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 import com.api.boleteria.model.Product;
+import com.api.boleteria.model.enums.ProductType;
+
 import java.util.List;
 
 
@@ -15,4 +17,7 @@ public interface IProductRepository extends JpaRepository <Product, Long>{
     boolean existsByName (String name);
     boolean existsByNameAndIdNot (String name, Long id);
     List<Product> findByAvailable(Boolean available);
+    List<Product> findByProductType(ProductType productType);
+    List<Product> findByProductTypeAndAvailable(ProductType productType, Boolean available);
+
 }

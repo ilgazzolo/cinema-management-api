@@ -14,6 +14,7 @@ import com.api.boleteria.dto.list.ProductListDTO;
 import com.api.boleteria.dto.request.ProductRequestDTO;
 import com.api.boleteria.repository.IProductRepository;
 import com.api.boleteria.validators.ProductValidator;
+import com.api.boleteria.model.enums.ProductType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -91,6 +92,19 @@ public class ProductService {
         return list;
     }
 
+    public List<ProductListDTO> findByProductType(ProductType productType) {
+        ProductValidator.validateProductType(productType);
+        List<ProductListDTO> list = repo.findByProductTypeAndAvailable(productType, true).stream()
+                .map(this::mapToListDTO)
+                .toList();
+
+        if (list.isEmpty()) {
+            throw new NotFoundException("No se encontraron productos de la categoria: " + productType);
+        }
+
+        return list;
+    }
+
     /* ------------------------------------- UPDATE ------------------------------------------------------------- */
 
     public ProductDetailDTO updateByID(Long id, ProductRequestDTO req) {
@@ -105,10 +119,12 @@ public class ProductService {
                 .map(p -> {
                     p.setName(req.getName());
                     p.setUnitPrice(req.getUnitPrice());
+                    p.setPriceInPoints(req.getPriceInPoints());
                     p.setStock(req.getStock());
                     p.setImageURL(req.getImageURL());
                     p.setDescription(req.getDescription());
                     p.setAvailable(req.getAvailable());
+                    p.setProductType(req.getProductType());
 
                     Product updated = repo.save(p);
                     return mapToDetailDTO(updated);
@@ -138,6 +154,7 @@ public class ProductService {
                 product.getId(),
                 product.getName(),
                 product.getUnitPrice(),
+                product.getPriceInPoints(),
                 product.getImageURL()
         );
     }
@@ -147,10 +164,12 @@ public class ProductService {
                 product.getId(),
                 product.getName(),
                 product.getUnitPrice(),
+                product.getPriceInPoints(),
                 product.getStock(),
                 product.getImageURL(),
                 product.getDescription(),
-                product.getAvailable()
+                product.getAvailable(),
+                product.getProductType()
         );
     }
 
@@ -158,10 +177,12 @@ public class ProductService {
         Product product = new Product();
         product.setName(dto.getName());
         product.setUnitPrice(dto.getUnitPrice());
+        product.setPriceInPoints(dto.getPriceInPoints());
         product.setStock(dto.getStock());
         product.setImageURL(dto.getImageURL());
         product.setDescription(dto.getDescription());
         product.setAvailable(dto.getAvailable());
+        product.setProductType(dto.getProductType());
         
         return product;
     }
