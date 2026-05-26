@@ -31,6 +31,8 @@ public class User {
     @Column(nullable = false)
     private String email;
 
+    @Column()
+    private Integer points=0;
 
     private String password;
 

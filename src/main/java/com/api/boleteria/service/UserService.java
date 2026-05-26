@@ -274,7 +274,8 @@ public class UserService implements UserDetailsService {
                 user.getSurname(),
                 user.getUsername(),
                 user.getEmail(),
-                user.getRole().name()
+                user.getRole().name(),
+                user.getPoints()
         );
     }
 
@@ -289,7 +290,8 @@ public class UserService implements UserDetailsService {
                 user.getId(),
                 user.getUsername(),
                 user.getEmail(),
-                user.getRole().name()
+                user.getRole().name(),
+                user.getPoints()
         );
     }
 

@@ -6,6 +6,7 @@ public record UserDetailDTO(
         String surname,
         String username,
         String email,
-        String role
+        String role,
+        Integer puntos
 ) {}
 

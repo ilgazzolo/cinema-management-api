@@ -69,13 +69,22 @@ public class PaymentService {
     @Transactional
     public PaymentResponseDTO createPreference(PaymentRequestDTO dto) {
         try {
+
             // Inicializar SDK de Mercado Pago
             MercadoPagoConfig.setAccessToken(System.getenv("MP_ACCESS_TOKEN"));
             // Guarda URL de ngrok
             String tunel = System.getenv("MIAPP_NGROKURL");
+            System.out.println("NGROK URL: " + tunel);
+            System.out.println("TOKEN: " + System.getenv("MP_ACCESS_TOKEN"));
 
             // Obtener usuario autenticado
             User user = userService.findAuthenticatedUser();
+
+            // Sumar puntos según cantidad de butacas
+            int puntosActuales = user.getPoints() == null ? 0 : user.getPoints();
+            user.setPoints(puntosActuales + dto.getSeats().size()*10);
+            userRepository.save(user);
+
 
             // Crear y guardar Payment local primero (para obtener ID)
             Payment payment = new Payment();
