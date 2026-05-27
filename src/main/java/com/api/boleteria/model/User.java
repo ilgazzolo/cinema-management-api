@@ -44,6 +44,8 @@ public class User {
     @JsonManagedReference
     private List<Ticket> tickets = new ArrayList<>();
 
+    @OneToMany(mappedBy = "user")
+    private List<RewardClaim> rewardClaims = new ArrayList<>();
 
     //CONSTRUCTOR CON ROL AUTOMATICO
     public User(String name, String surname, String username, String email, String password) {
