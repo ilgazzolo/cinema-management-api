@@ -216,14 +216,15 @@ public class UserService implements UserDetailsService {
      * Carga los detalles de un usuario a partir de su nombre de usuario.
      * Este método es utilizado por Spring Security durante el proceso de autenticación.
      *
-     * @param username Nombre de usuario.
+     * @param usernameOrEmail Nombre de usuario.
      * @return UserDetails con la información del usuario autenticado.
      * @throws NotFoundException si el usuario no existe.
      */
     @Override
-    public UserDetails loadUserByUsername(String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("El usuario con nombre: " + username + " no fue encontrado."));
+    public UserDetails loadUserByUsername(String usernameOrEmail) {
+        User user = userRepository.findByUsername(usernameOrEmail)
+                .or(() -> userRepository.findByEmail(usernameOrEmail))
+                .orElseThrow(() -> new NotFoundException("El usuario: " + usernameOrEmail + " no fue encontrado."));
 
         GrantedAuthority authority = new SimpleGrantedAuthority(user.getRole().getRoleName());
 
@@ -243,7 +244,7 @@ public class UserService implements UserDetailsService {
      */
     public Map<String, String> login(LoginRequestDTO req, AuthenticationManager authManager) {
         Authentication auth = authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword())
+                new UsernamePasswordAuthenticationToken(req.getUsernameOrEmail(), req.getPassword())
         );
 
         UserDetails user = (UserDetails) auth.getPrincipal();
