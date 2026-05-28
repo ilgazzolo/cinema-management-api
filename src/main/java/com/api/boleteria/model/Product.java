@@ -1,7 +1,6 @@
 package com.api.boleteria.model;
 
 import com.api.boleteria.model.enums.ProductType;
-import com.api.boleteria.model.enums.ScreenType;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
@@ -50,8 +49,5 @@ public class Product {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private ProductType productType;
-
-    @OneToOne(mappedBy = "product", fetch = FetchType.LAZY)
-    private PaymentStore payment;
 
 }
