@@ -46,13 +46,8 @@ public class PaymentStore {
     private LocalDateTime date;
 
     @OneToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "product_id", unique = true, nullable = true)
-    private Product product;
-
-    @ElementCollection
-    @CollectionTable(name = "payment_store", joinColumns = @JoinColumn(name = "paymentStore_id"))
-    @Column(name = "products")
-    private List<String> products = new ArrayList<>();
+    @JoinColumn(name = "store_order_id", unique = true, nullable = true)
+    private StoreOrder storeOrder;
 
     @PrePersist
     public void prePersist() {

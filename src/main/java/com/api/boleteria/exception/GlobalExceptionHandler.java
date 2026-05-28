@@ -93,12 +93,15 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<String> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        String message = "No se pudo completar la operación. Verifique que no haya datos duplicados o relaciones inválidas.";
-
-        if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("user_id")) {
-            message = "El usuario ya tiene una tarjeta registrada.";
-        }
-
+        // Extraemos la causa raíz exacta del error de SQL
+        String realError = ex.getMostSpecificCause().getMessage();
+    
+        // Lo imprimimos en la consola del backend para que puedas leerlo completo
+        System.out.println("❌ ERROR DE INTEGRIDAD EN BD: " + realError);
+    
+        // Le mandamos el error real al frontend temporalmente para debugear
+        String message = "Error de base de datos: " + realError;
+    
         return ResponseEntity.status(HttpStatus.CONFLICT).body(message);
     }
 
