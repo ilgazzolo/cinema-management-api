@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-
 import com.api.boleteria.dto.detail.StoreOrderDetailDTO;
 import com.api.boleteria.dto.list.StoreOrderListDTO;
 import com.api.boleteria.dto.request.OrderItemsRequestDTO;
@@ -18,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/store")
 @RequiredArgsConstructor
+@CrossOrigin(origins = {"http://localhost:4200"})
 public class StoreOrderController {
 
     private final StoreOrderService storeOrderService;
@@ -46,6 +46,7 @@ public class StoreOrderController {
     }
 
     @DeleteMapping("/cart/items/{itemId}")
+    @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<StoreOrderDetailDTO> removeItemFromCart(@PathVariable Long itemId) {
         StoreOrderDetailDTO updatedCart = storeOrderService.removeItemFromCart(itemId);
         return ResponseEntity.ok(updatedCart);
