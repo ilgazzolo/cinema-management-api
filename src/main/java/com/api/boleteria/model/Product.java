@@ -38,6 +38,10 @@ public class Product {
     private Integer stock;
 
     @Column(nullable = false)
+    @DecimalMin(value = "0.0", inclusive = false, message = "El monto debe ser positivo.")
+    private Double totalCostStock;
+
+    @Column(nullable = false)
     private String imageURL;
 
     @Column (nullable = false)

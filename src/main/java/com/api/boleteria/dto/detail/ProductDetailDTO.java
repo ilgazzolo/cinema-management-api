@@ -8,6 +8,7 @@ public record ProductDetailDTO(
     Double unitPrice,
     Integer priceInPoints,
     Integer stock,
+    Double totalCostStock,
     String imageURL,
     String description,
     Boolean available,

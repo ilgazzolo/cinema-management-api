@@ -31,6 +31,10 @@ public class ProductRequestDTO {
     @Min(value = 0, message = "No puede poner un stock negativo.")
     private Integer stock;
 
+    @NotNull(message = "Debe especificar el costo total del stock.")
+    @DecimalMin(value = "0.0", inclusive = false, message = "El monto debe ser positivo.")
+    private Double totalCostStock;
+
     @NotBlank(message = "La imagen del producto es obligatoria")
     @NotNull(message = "El producto debe tener una imagen.")
     private String imageURL;
