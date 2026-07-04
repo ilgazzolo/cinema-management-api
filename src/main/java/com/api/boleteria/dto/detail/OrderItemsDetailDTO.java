@@ -6,6 +6,7 @@ public record OrderItemsDetailDTO(
     String imageURL,
     Integer quantity,
     Double historicalPrice,
+    Double historicalUnitCost,
     Integer historicalPriceInPoints, 
     Double subtotal,
     Integer subtotalInPoints

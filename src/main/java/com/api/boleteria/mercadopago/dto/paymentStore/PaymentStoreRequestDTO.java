@@ -16,6 +16,8 @@ public class PaymentStoreRequestDTO {
     @NotNull(message = "Debe detallar el numero de pedido.")
     private String title;     
 
+    private Long storeOrderId;
+
     @NotNull(message = "Debe especificar su email.")
     @Email(message = "El email debe tener un formato valido.")
     private String userEmail;       
