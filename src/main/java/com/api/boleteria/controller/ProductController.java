@@ -72,7 +72,6 @@ public class ProductController {
     }
 
     @GetMapping("/name/{name}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('CLIENT')")
     public ResponseEntity<List<ProductDetailDTO>> getByName(@PathVariable String name){
         List<ProductDetailDTO> list = service.findByName(name);
         return ResponseEntity.ok(list);

@@ -51,10 +51,6 @@ public class ProductService {
                 .map(this::mapToListDTO)
                 .toList();
 
-        if (list.isEmpty()) {
-            throw new NotFoundException("No hay productos registrados.");
-        }
-
         return list;
     }
 
@@ -72,10 +68,6 @@ public class ProductService {
                 .map(this::mapToDetailDTO)
                 .toList();
 
-        if (list.isEmpty()) {
-            throw new NotFoundException("No hay productos que coinicidan con la busqueda.");
-        }    
-
         return list;
     }
 
@@ -85,10 +77,6 @@ public class ProductService {
                 .map(this::mapToDetailDTO)
                 .toList();
 
-        if (list.isEmpty()) {
-            throw new NotFoundException("No hay productos disponibles.");
-        }
-
         return list;
     }
 
@@ -97,10 +85,6 @@ public class ProductService {
         List<ProductListDTO> list = repo.findByProductTypeAndAvailable(productType, true).stream()
                 .map(this::mapToListDTO)
                 .toList();
-
-        if (list.isEmpty()) {
-            throw new NotFoundException("No se encontraron productos de la categoria: " + productType);
-        }
 
         return list;
     }
