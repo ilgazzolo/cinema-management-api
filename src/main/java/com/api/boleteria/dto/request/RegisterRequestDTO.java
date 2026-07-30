@@ -30,7 +30,7 @@ public class RegisterRequestDTO {
     @NotBlank(message = "La contrasenia es obligatoria")
     @Size(min = 6, max = 20, message = "La contraseña debe tener entre 6 y 20 caracteres. ")
     @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()\\-_=+\\[\\]{}|;:'\",.<>?/\\\\`~])[A-Za-z\\d!@#$%^&*()\\-_=+\\[\\]{}|;:'\",.<>?/\\\\`~]{8,64}$",
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()\\-_=+\\[\\]{}|;:'\",.<>?/\\\\`~])[A-Za-z\\d!@#$%^&*()\\-_=+\\[\\]{}|;:'\",.<>?/\\\\`~]+$",
             message = "La contraseña debe contener mayúsculas, minúsculas, números y caracteres especiales"
     )
     @ToString.Exclude
