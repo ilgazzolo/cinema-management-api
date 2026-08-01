@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 public class UserValidator {
 
     private static final Pattern PASSWORD_PATTERN = Pattern.compile(
-            "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$"
+            "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()\\-_=+\\[\\]{}|;:'\",.<>?/\\\\`~])[A-Za-z\\d!@#$%^&*()\\-_=+\\[\\]{}|;:'\",.<>?/\\\\`~]{6,20}$"
     );
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
@@ -122,7 +122,7 @@ public class UserValidator {
     }
 
     /**
-     * Valida la contraseña: no vacía, longitud entre 8 y 20, y cumple con el patrón de complejidad.
+     * Valida la contraseña: no vacía, longitud entre 6 y 20, y cumple con el patrón de complejidad.
      *
      * @param password Contraseña a validar.
      * @throws IllegalArgumentException si la validación falla.
@@ -131,8 +131,8 @@ public class UserValidator {
         if (password == null || password.isBlank()) {
             throw new IllegalArgumentException("La contraseña no puede estar vacía.");
         }
-        if (password.length() < 8 || password.length() > 20) {
-            throw new IllegalArgumentException("La contraseña debe tener entre 8 y 20 caracteres.");
+        if (password.length() < 6 || password.length() > 20) {
+            throw new IllegalArgumentException("La contraseña debe tener entre 6 y 20 caracteres.");
         }
         if (!PASSWORD_PATTERN.matcher(password).matches()) {
             throw new IllegalArgumentException("La contraseña debe contener mayúsculas, minúsculas, números y caracteres especiales.");

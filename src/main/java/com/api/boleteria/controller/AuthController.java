@@ -1,7 +1,10 @@
 package com.api.boleteria.controller;
 
+import com.api.boleteria.dto.request.ForgotPasswordRequestDTO;
 import com.api.boleteria.dto.request.LoginRequestDTO;
 import com.api.boleteria.dto.request.RegisterRequestDTO;
+import com.api.boleteria.dto.request.ResetPasswordRequestDTO;
+import com.api.boleteria.service.PasswordResetService;
 import com.api.boleteria.service.UserService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
@@ -30,6 +33,7 @@ public class AuthController {
 
     private final AuthenticationManager authManager;
     private final UserService userService;
+    private final PasswordResetService passwordResetService;
 
     /**
      * Autentica a un usuario con las credenciales proporcionadas.
@@ -54,6 +58,34 @@ public class AuthController {
     public ResponseEntity<String> register(@RequestBody @Valid RegisterRequestDTO entity) {
         userService.save(entity);
         return ResponseEntity.status(HttpStatus.CREATED).body("Usuario registrado con éxito");
+    }
+
+    /**
+     * Solicita la recuperación de contraseña. Si el email está registrado, se envía un correo
+     * con un enlace para restablecer la contraseña. Siempre responde 200 para no revelar
+     * si el email existe o no en el sistema.
+     *
+     * @param entity DTO con el email del usuario.
+     * @return ResponseEntity con mensaje genérico de confirmación.
+     */
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDTO entity) {
+        passwordResetService.requestReset(entity);
+        return ResponseEntity.ok("Si el email está registrado, recibirás un correo con instrucciones para recuperar tu contraseña.");
+    }
+
+    /**
+     * Restablece la contraseña de un usuario a partir de un token de recuperación válido.
+     *
+     * @param entity DTO con el token y la nueva contraseña.
+     * @return ResponseEntity con mensaje de éxito.
+     */
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDTO entity) {
+        passwordResetService.resetPassword(entity);
+        return ResponseEntity.ok("Contraseña actualizada con éxito.");
     }
 
 }
