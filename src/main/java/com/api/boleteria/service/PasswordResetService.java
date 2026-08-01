@@ -11,6 +11,7 @@ import com.api.boleteria.validators.UserValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -49,6 +50,7 @@ public class PasswordResetService {
      *
      * @param req DTO con el email del usuario.
      */
+    @Transactional
     public void requestReset(ForgotPasswordRequestDTO req) {
         userRepository.findByEmail(req.getEmail()).ifPresent(user -> {
             tokenRepository.deleteByUser(user);
