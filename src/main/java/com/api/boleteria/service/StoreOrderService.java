@@ -63,6 +63,7 @@ public class StoreOrderService {
         newItem.setProduct(product);
         newItem.setQuantity(request.getQuantity());
         newItem.setHistoricalPrice(product.getUnitPrice()); 
+        newItem.setHistoricalUnitCost(product.getUnitCost());
         newItem.setHistoricalPriceInPoints(product.getPriceInPoints());
         newItem.setSubtotal(product.getUnitPrice() * request.getQuantity());
         newItem.setSubtotalInPoints(product.getPriceInPoints() * request.getQuantity());
@@ -188,6 +189,7 @@ public class StoreOrderService {
                     item.getProduct().getImageURL(),
                     item.getQuantity(),
                     item.getHistoricalPrice(),
+                    item.getHistoricalUnitCost(),
                     item.getHistoricalPriceInPoints(),
                     item.getSubtotal(),
                     item.getSubtotalInPoints()

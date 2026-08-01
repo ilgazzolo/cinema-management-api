@@ -1,6 +1,6 @@
 package com.api.boleteria.dto.detail;
 
-import com.api.boleteria.model.enums.ProductType;; 
+import com.api.boleteria.model.enums.ProductType;
 
 public record ProductDetailDTO(
     Long id,
@@ -8,7 +8,7 @@ public record ProductDetailDTO(
     Double unitPrice,
     Integer priceInPoints,
     Integer stock,
-    Double totalCostStock,
+    Double unitCost,
     String imageURL,
     String description,
     Boolean available,

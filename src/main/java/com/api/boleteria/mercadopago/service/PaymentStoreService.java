@@ -93,6 +93,12 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
         payment.setDate(LocalDateTime.now());
         payment.setAmount(dto.getTotalAmount()); // Monto final calculado en la orden
         payment.setStatus(StatusPayment.PENDING); // Lo ideal es que empiece PENDING hasta que MP apruebe
+
+        if (dto.getStoreOrderId() != null) {
+            StoreOrder order = storeOrderRepository.findById(dto.getStoreOrderId())
+                    .orElseThrow(() -> new NotFoundException("StoreOrder no encontrada con ID: " + dto.getStoreOrderId()));
+            payment.setStoreOrder(order);
+        }
         
         // Calculamos la cantidad total sumando las cantidades de cada producto
         int cantidadTotal = dto.getItems().stream()
@@ -285,8 +291,8 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
                 if (order != null) {
                     // Acá podés actualizar el estado de la orden a "Pagada" o "Completada"
                     // Ejemplo (descomentar y ajustar según cómo se llame el atributo de estado en tu clase StoreOrder):
-                    // order.setStatus("COMPLETED"); 
-                    // storeOrderRepository.save(order);
+                    order.setStatus(StatusPayment.APPROVED);
+                    storeOrderRepository.save(order);
                 
                     System.out.println("Store Order vinculada y actualizada con éxito para el pago: " + mpPaymentId);
                 } else {
@@ -354,6 +360,7 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
                     item.setQuantity(itemDTO.quantity());
                     // Asumiendo que tenés estos campos en OrderItems:
                     item.setHistoricalPrice(itemDTO.historicalPrice());
+                    item.setHistoricalUnitCost(itemDTO.historicalUnitCost());
                     item.setHistoricalPriceInPoints(itemDTO.historicalPriceInPoints());
                 
                     return item;

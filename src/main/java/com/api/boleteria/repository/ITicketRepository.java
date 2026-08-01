@@ -6,10 +6,12 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 @Repository
 public interface ITicketRepository extends JpaRepository<Ticket, Long> {
     List<Ticket> findByUserId(Long userId);
     Optional<Ticket> findTopByUserIdAndFunctionIdOrderByPurchaseDateTimeDesc(Long userId, Long functionId);
+    List<Ticket> findByPurchaseDateTimeBetween(LocalDateTime start, LocalDateTime end);
 
 }

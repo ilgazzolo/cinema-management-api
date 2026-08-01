@@ -9,7 +9,7 @@ public class ProductValidator {
     public static void validateFields(ProductRequestDTO req){
         validateName(req.getName());
         validateStock(req.getStock());
-        validateTotalCostStock(req.getTotalCostStock());
+        validateUnitCost(req.getUnitCost());
         validateUnitPrice(req.getUnitPrice());
         validatePriceInPoints(req.getPriceInPoints());
         validateImage(req.getImageURL());
@@ -46,9 +46,9 @@ public class ProductValidator {
         }
     }
 
-    public static void validateTotalCostStock (Double price){
+    public static void validateUnitCost (Double price){
         if(price == null || price < 0.00){
-            throw new BadRequestException("El precio no puede ser nulo o negativo.");
+            throw new BadRequestException("El costo unitario no puede ser nulo o negativo.");
         }
     }
 

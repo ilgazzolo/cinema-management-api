@@ -34,6 +34,9 @@ public class OrderItems {
     @Column(nullable = false)
     private Double historicalPrice;
 
+    @Column(nullable = true)
+    private Double historicalUnitCost;
+
     @Column(nullable = false)
     private Integer historicalPriceInPoints;
 

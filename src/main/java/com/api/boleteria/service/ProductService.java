@@ -51,10 +51,6 @@ public class ProductService {
                 .map(this::mapToListDTO)
                 .toList();
 
-        if (list.isEmpty()) {
-            throw new NotFoundException("No hay productos registrados.");
-        }
-
         return list;
     }
 
@@ -72,10 +68,6 @@ public class ProductService {
                 .map(this::mapToDetailDTO)
                 .toList();
 
-        if (list.isEmpty()) {
-            throw new NotFoundException("No hay productos que coinicidan con la busqueda.");
-        }    
-
         return list;
     }
 
@@ -85,10 +77,6 @@ public class ProductService {
                 .map(this::mapToDetailDTO)
                 .toList();
 
-        if (list.isEmpty()) {
-            throw new NotFoundException("No hay productos disponibles.");
-        }
-
         return list;
     }
 
@@ -97,10 +85,6 @@ public class ProductService {
         List<ProductListDTO> list = repo.findByProductTypeAndAvailable(productType, true).stream()
                 .map(this::mapToListDTO)
                 .toList();
-
-        if (list.isEmpty()) {
-            throw new NotFoundException("No se encontraron productos de la categoria: " + productType);
-        }
 
         return list;
     }
@@ -121,7 +105,7 @@ public class ProductService {
                     p.setUnitPrice(req.getUnitPrice());
                     p.setPriceInPoints(req.getPriceInPoints());
                     p.setStock(req.getStock());
-                    p.setTotalCostStock(req.getTotalCostStock());
+                    p.setUnitCost(req.getUnitCost());
                     p.setImageURL(req.getImageURL());
                     p.setDescription(req.getDescription());
                     p.setAvailable(req.getAvailable());
@@ -167,7 +151,7 @@ public class ProductService {
                 product.getUnitPrice(),
                 product.getPriceInPoints(),
                 product.getStock(),
-                product.getTotalCostStock(),
+                product.getUnitCost(),
                 product.getImageURL(),
                 product.getDescription(),
                 product.getAvailable(),
@@ -181,7 +165,7 @@ public class ProductService {
         product.setUnitPrice(dto.getUnitPrice());
         product.setPriceInPoints(dto.getPriceInPoints());
         product.setStock(dto.getStock());
-        product.setTotalCostStock(dto.getTotalCostStock());
+        product.setUnitCost(dto.getUnitCost());
         product.setImageURL(dto.getImageURL());
         product.setDescription(dto.getDescription());
         product.setAvailable(dto.getAvailable());
