@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controlador REST para la gestión de usuarios.
@@ -114,4 +115,15 @@ public class UserController {
     public ResponseEntity<UserDetailDTO> update(@RequestBody RegisterRequestDTO entity) {
         return ResponseEntity.ok(userService.update(entity));
     }
+    @PutMapping("/me/points")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<UserDetailDTO> descontarPuntos(
+            @RequestBody Map<String, Integer> body){
+
+        Integer puntos = body.get("puntos");
+
+        return ResponseEntity.ok(userService.descontarPuntos(puntos));
+    }
 }
+
+

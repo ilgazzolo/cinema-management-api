@@ -11,6 +11,7 @@ import com.api.boleteria.model.enums.Role;
 import com.api.boleteria.model.User; //
 import com.api.boleteria.repository.IUserRepository; //
 import com.api.boleteria.validators.UserValidator; //
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -209,6 +210,21 @@ public class UserService implements UserDetailsService {
     }
 
 
+    @Transactional
+    public UserDetailDTO descontarPuntos(Integer puntos){
+
+        User user = findAuthenticatedUser();
+
+        if(user.getPoints() < puntos){
+            throw new BadRequestException("No tienes puntos suficientes.");
+        }
+
+        user.setPoints(user.getPoints() - puntos);
+
+        userRepository.save(user);
+
+        return mapToDetailDTO(user);
+    }
 
     //-------------------------------AUTH--------------------------------//
 

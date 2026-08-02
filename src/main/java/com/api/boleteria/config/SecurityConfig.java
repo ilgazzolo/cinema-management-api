@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/tickets/**").authenticated()
                         .requestMatchers("/api/userManagement/**").authenticated()
                         .requestMatchers("/api/payments/**").authenticated()
+
                         .anyRequest().authenticated())
 
                 .addFilterBefore(jwtAuthFilter(),
