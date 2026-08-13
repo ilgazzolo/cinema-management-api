@@ -69,15 +69,39 @@ public class WebHookController {
     /**
      * Redirect endpoint triggered when Mercado Pago confirms a successful payment.
      * <p>
-     * It redirects the user to the Angular frontend’s success page.
+     * Mercado Pago incluye el {@code payment_id} en esta misma URL de retorno, así que
+     * aprovechamos para intentar procesar el pago acá también, como respaldo del webhook
+     * asíncrono ({@link #handleNotification}). El webhook puede demorar, fallar o no llegar
+     * nunca (por ejemplo, en desarrollo detrás de un túnel de ngrok), y sin esto la compra
+     * quedaba "aprobada" en Mercado Pago pero la butaca seguía libre y no se generaba el
+     * ticket. {@link PaymentService#processWebhookNotification} es idempotente, así que no
+     * hay problema si el webhook real también llega y lo procesa de nuevo.
      * </p>
      *
-     * @return a {@link RedirectView} pointing to {@code /payment-success} in the frontend.
+     * @param paymentId    ID del pago en Mercado Pago (param {@code payment_id}).
+     * @param collectionId Alias legado del mismo ID (param {@code collection_id}), usado como
+     *                     respaldo si {@code payment_id} no viene presente.
+     * @return a {@link RedirectView} pointing to the Angular frontend.
      */
     @GetMapping("/success")
-    public RedirectView success() {
-        // Redirige al frontend a la página de éxito
-        return new RedirectView("http://localhost:4200/");
+    public RedirectView success(
+            @RequestParam(value = "payment_id", required = false) String paymentId,
+            @RequestParam(value = "collection_id", required = false) String collectionId
+    ) {
+        String mpPaymentId = (paymentId != null) ? paymentId : collectionId;
+
+        if (mpPaymentId != null) {
+            try {
+                paymentService.processWebhookNotification(mpPaymentId);
+            } catch (Exception e) {
+                // No dejamos que un problema al confirmar el pago le rompa el redirect al
+                // usuario: el webhook asíncrono todavía puede llegar y confirmarlo igual.
+                e.printStackTrace();
+            }
+        }
+
+        // Redirige al frontend al perfil, con un flag para que muestre la confirmación de compra
+        return new RedirectView("http://localhost:4200/profile?compra=exito");
     }
 
 

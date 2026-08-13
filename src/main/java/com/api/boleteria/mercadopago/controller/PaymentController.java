@@ -52,16 +52,9 @@ public class PaymentController {
 
     @PostMapping("/create")
     @PreAuthorize("hasRole('CLIENT')")
-    public ResponseEntity<?> createPreference(@Valid @RequestBody PaymentRequestDTO dto) {
-        try{
-            PaymentResponseDTO response = paymentService.createPreference(dto);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body("Error generating payment preference.");
-        }
+    public ResponseEntity<PaymentResponseDTO> createPreference(@Valid @RequestBody PaymentRequestDTO dto) {
+        PaymentResponseDTO response = paymentService.createPreference(dto);
+        return ResponseEntity.ok(response);
     }
 
 

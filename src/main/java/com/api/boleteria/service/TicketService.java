@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -73,7 +74,10 @@ public class TicketService {
         ticket.setQuantity(dto.getSeats().size());
         ticket.setTotalAmount(dto.getUnitPrice().multiply(BigDecimal.valueOf(dto.getSeats().size())));
         ticket.setPurchaseDateTime(LocalDateTime.now());
-        ticket.setSeats(dto.getSeats());
+        // Copia la lista en vez de reusar la misma instancia que ya está gestionada por
+        // Hibernate como colección de Payment.seats: si Ticket.seats y Payment.seats apuntan
+        // al mismo objeto, Hibernate tira "Found shared references to a collection" al flushear.
+        ticket.setSeats(new ArrayList<>(dto.getSeats()));
 
         // Actualiza la capacidad disponible
         function.setAvailableCapacity(function.getAvailableCapacity() - dto.getSeats().size());
@@ -173,7 +177,10 @@ public class TicketService {
         ticket.setPurchaseDateTime(LocalDateTime.now());
         ticket.setUser(user);
         ticket.setFunction(function);
-        ticket.setSeats(dto.getSeats());
+        // Copia la lista en vez de reusar la misma instancia que ya está gestionada por
+        // Hibernate como colección de Payment.seats: si Ticket.seats y Payment.seats apuntan
+        // al mismo objeto, Hibernate tira "Found shared references to a collection" al flushear.
+        ticket.setSeats(new ArrayList<>(dto.getSeats()));
         return ticket;
     }
 
