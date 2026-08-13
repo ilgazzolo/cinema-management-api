@@ -1,7 +1,7 @@
 package com.api.boleteria.mercadopago.service;
 
-import com.api.boleteria.dto.detail.TicketDetailDTO;
 import com.api.boleteria.dto.request.TicketRequestDTO;
+import com.api.boleteria.exception.BadRequestException;
 import com.api.boleteria.exception.NotFoundException;
 import com.api.boleteria.log.PaymentLog;
 import com.api.boleteria.mercadopago.dto.PaymentRequestDTO;
@@ -11,6 +11,7 @@ import com.api.boleteria.model.enums.StatusPayment;
 import com.api.boleteria.repository.*;
 import com.api.boleteria.service.TicketService;
 import com.api.boleteria.service.UserService;
+import com.api.boleteria.validators.TicketValidator;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
 import com.mercadopago.client.preference.PreferenceClient;
@@ -21,11 +22,9 @@ import com.mercadopago.resources.preference.Preference;
 import com.mercadopago.MercadoPagoConfig;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -34,6 +33,11 @@ import java.util.List;
  * payment status synchronization through webhooks, and ticket generation upon
  * successful payments. It also keeps a detailed log of all payment events for
  * auditing and debugging purposes.
+ *
+ * La butaca, el ticket y los puntos del usuario recién se confirman cuando Mercado Pago
+ * notifica por webhook que el pago fue realmente aprobado (ver {@link #processWebhookNotification}).
+ * Al crear la preferencia sólo se valida disponibilidad; nada queda reservado en firme
+ * todavía, así que si el pago falla o se abandona el checkout la butaca sigue libre.
  */
 @Service
 @RequiredArgsConstructor
@@ -56,15 +60,18 @@ public class PaymentService {
 
     /**
      * Creates a new payment preference in Mercado Pago using the provided payment data.
-     * The method builds the preference request, sets the item details, back URLs,
-     * notification URL, and auto-return configuration. It then sends the request to
-     * Mercado Pago to obtain a payment preference and stores the local record in the database.
+     * Valida que la función y las butacas elegidas existan y sigan disponibles, guarda un
+     * {@link Payment} local en estado {@code PENDING} (usado como external_reference) y crea
+     * la preferencia en Mercado Pago. No ocupa butacas, no genera el ticket ni suma puntos:
+     * eso sólo ocurre si el pago es aprobado (ver {@link #processWebhookNotification}).
      *
      * @param dto The {@link PaymentRequestDTO} containing information such as title,
      *            description, quantity, price, function ID, and selected seats.
      * @return A {@link PaymentResponseDTO} with the generated preference ID and the sandbox
      *         URL to redirect the user for payment.
-     * @throws RuntimeException if any error occurs during preference creation or API communication.
+     * @throws NotFoundException   si la función o alguna butaca enviada no existen.
+     * @throws BadRequestException si no hay capacidad suficiente o alguna butaca ya está ocupada.
+     * @throws RuntimeException    si ocurre un error de comunicación con Mercado Pago.
      */
     @Transactional
     public PaymentResponseDTO createPreference(PaymentRequestDTO dto) {
@@ -74,32 +81,40 @@ public class PaymentService {
             MercadoPagoConfig.setAccessToken(System.getenv("MP_ACCESS_TOKEN"));
             // Guarda URL de ngrok
             String tunel = System.getenv("MIAPP_NGROKURL");
-            System.out.println("NGROK URL: " + tunel);
-            System.out.println("TOKEN: " + System.getenv("MP_ACCESS_TOKEN"));
 
             // Obtener usuario autenticado
             User user = userService.findAuthenticatedUser();
 
-            // Sumar puntos según cantidad de butacas
-            int puntosActuales = user.getPoints() == null ? 0 : user.getPoints();
-            user.setPoints(puntosActuales + dto.getSeats().size()*10);
-            userRepository.save(user);
+            Function function = functionRepository.findById(dto.getFunctionId())
+                    .orElseThrow(() -> new NotFoundException("Function with ID: " + dto.getFunctionId() + " not found"));
 
+            TicketValidator.validateCapacity(function, dto.getQuantity());
 
-            // Crear y guardar Payment local primero (para obtener ID)
+            // Validar que las butacas elegidas existan y sigan libres. La ocupación real
+            // se confirma recién en el webhook, cuando se sabe que el pago fue aprobado.
+            List<Seat> seatsRequested = seatRepository.findByFunctionId(function.getId()).stream()
+                    .filter(seat -> dto.getSeats().contains("R" + seat.getSeatRowNumber() + "C" + seat.getSeatColumnNumber()))
+                    .toList();
+
+            if (seatsRequested.size() != dto.getSeats().size()) {
+                throw new NotFoundException("Una o más butacas seleccionadas no existen para esta función.");
+            }
+            if (seatsRequested.stream().anyMatch(Seat::getOccupied)) {
+                throw new BadRequestException("Una o más butacas seleccionadas ya no están disponibles.");
+            }
+
+            // Crear y guardar Payment local primero (para obtener ID y usarlo como
+            // external_reference). Queda en PENDING hasta que el webhook confirme el pago real.
             Payment payment = new Payment();
             payment.setUserId(user.getId());
             payment.setUserEmail(user.getEmail());
             payment.setQuantity(dto.getSeats().size());
             payment.setDate(LocalDateTime.now());
             payment.setAmount(dto.getUnitPrice().multiply(BigDecimal.valueOf(dto.getSeats().size())));
-            payment.setStatus(StatusPayment.APPROVED); // para crear el ticket
+            payment.setStatus(StatusPayment.PENDING);
             payment.setSeats(dto.getSeats());
-            Function function = functionRepository.findById(dto.getFunctionId())
-                    .orElseThrow(() -> new NotFoundException("Function with ID: " + dto.getFunctionId() + " not found"));
             payment.setFunction(function);
             payment.prePersist();
-            payment.setTicket(this.crearTicket(user.getUsername(),user.getId(),function,dto.getSeats(), dto.getQuantity(),dto.getUnitPrice().multiply(BigDecimal.valueOf(dto.getQuantity()))));
 
             // Persistir pago local
             paymentRepository.save(payment);
@@ -146,6 +161,8 @@ public class PaymentService {
             // Respuesta
             return mapToResponse(preference);
 
+        } catch (BadRequestException | NotFoundException e) {
+            throw e;
         } catch (MPApiException apiException) {
             System.out.println("Status Code: " + apiException.getStatusCode());
             System.out.println("Error Details: " + apiException.getApiResponse().getContent());
@@ -163,9 +180,12 @@ public class PaymentService {
 
 
     /**
-     * Updates or creates a {@link Payment} record in the database based on data received
-     * from Mercado Pago. It ensures that the payment status, user information, and logs
-     * remain consistent with the latest update from the platform.
+     * Busca (o crea) el {@link Payment} local asociado a un pago de Mercado Pago a partir de su
+     * ID de Mercado Pago, y sincroniza su estado con el informado por la plataforma.
+     * <p>
+     * Se usa como respaldo cuando la notificación no trae un external_reference utilizable;
+     * el camino principal del webhook busca el Payment por external_reference y llama
+     * directamente a {@link #syncPaymentStatus} para evitar crear un registro duplicado.
      *
      * @param mpPaymentId The Mercado Pago payment ID.
      * @param mpStatus    The payment status received from Mercado Pago (e.g. "approved", "pending", "rejected").
@@ -183,7 +203,20 @@ public class PaymentService {
                     return p;
                 });
 
-        // Asegurar que queda seteado el mpPaymentId
+        return syncPaymentStatus(payment, mpPaymentId, mpStatus, userEmail);
+    }
+
+    /**
+     * Aplica el estado real informado por Mercado Pago sobre un {@link Payment} local ya
+     * resuelto (encontrado por ID o por mpPaymentId) y deja constancia en el log de pagos.
+     *
+     * @param payment     Payment local a actualizar.
+     * @param mpPaymentId ID del pago en Mercado Pago.
+     * @param mpStatus    Estado informado por Mercado Pago.
+     * @param userEmail   Email del pagador, si está disponible.
+     * @return El Payment con el estado sincronizado y ya persistido.
+     */
+    private Payment syncPaymentStatus(Payment payment, String mpPaymentId, String mpStatus, String userEmail) {
         if (payment.getMpPaymentId() == null) {
             payment.setMpPaymentId(mpPaymentId);
         }
@@ -220,15 +253,23 @@ public class PaymentService {
 
     /**
      * Processes incoming webhook notifications from Mercado Pago.
-     * This method retrieves payment details from the Mercado Pago API, updates the
-     * local payment record, and logs the notification event. If the payment is approved,
-     * it also performs the following actions:
+     * <p>
+     * Busca el {@link Payment} local por external_reference y sincroniza su estado con el
+     * informado por Mercado Pago (a diferencia de la versión anterior, esto pasa siempre,
+     * no sólo cuando el Payment todavía no existía). Sólo si el estado sincronizado es
+     * {@code APPROVED} se confirma la compra:
      * <ul>
-     *   <li>Updates seat availability for the related function</li>
-     *   <li>Decreases the function’s available capacity</li>
-     *   <li>Creates and links a new ticket to the payment</li>
+     *   <li>Se revalida que las butacas sigan libres (protege contra ventas dobles si dos
+     *       pagos por las mismas butacas llegaran a aprobarse casi en simultáneo)</li>
+     *   <li>Se marcan esas butacas como ocupadas</li>
+     *   <li>Se suman los puntos del usuario</li>
+     *   <li>Se crea el ticket y se lo vincula al pago</li>
      * </ul>
-     * Any errors are logged for debugging and consistency tracking.
+     * Si el pago no fue aprobado, no se toca ninguna butaca ni se genera ticket: quedan
+     * disponibles para que el mismo u otro usuario puedan volver a intentarlo.
+     * <p>
+     * Es idempotente: si Mercado Pago reenvía la misma notificación para un pago que ya
+     * tiene un ticket vinculado, no se vuelve a procesar.
      *
      * @param mpPaymentId The Mercado Pago payment ID included in the webhook notification.
      */
@@ -248,159 +289,98 @@ public class PaymentService {
 
             System.out.println("Payment updated from webhook: " + mpPaymentId + " - " + mpStatus);
 
-            // --- Vincular al Payment local usando external_reference ---
+            // Vincular al Payment local usando external_reference y sincronizar su estado real
             Payment payment;
             String externalRef = mpPayment.getExternalReference();
             if (externalRef != null) {
                 Long localPaymentId = Long.valueOf(externalRef);
-                payment = paymentRepository.findById(localPaymentId)
-                        .orElseGet(() -> updatePaymentStatus(mpPaymentId, mpStatus, userEmail));
+                Payment localPayment = paymentRepository.findById(localPaymentId).orElse(null);
+                payment = (localPayment != null)
+                        ? syncPaymentStatus(localPayment, mpPaymentId, mpStatus, userEmail)
+                        : updatePaymentStatus(mpPaymentId, mpStatus, userEmail);
             } else {
                 payment = updatePaymentStatus(mpPaymentId, mpStatus, userEmail);
             }
 
-            // Asegurar que guardamos mpPaymentId
-            if (payment.getMpPaymentId() == null) {
-                payment.setMpPaymentId(mpPaymentId);
-                paymentRepository.save(payment);
+            // El pago no fue aprobado (rechazado, pendiente, cancelado, etc.): no se ocupa
+            // ninguna butaca, no se genera ticket ni se suman puntos.
+            if (!StatusPayment.APPROVED.equals(payment.getStatus())) {
+                return;
             }
 
-            // Crear el ticket si el pago fue aprobado
-            if (StatusPayment.APPROVED.equals(payment.getStatus())) {
-
-                // Buscar usuario por ID o email
-                User user = null;
-                if (payment.getUserId() != null) {
-                    user = userRepository.findById(payment.getUserId()).orElse(null);
-                }
-                if (user == null && userEmail != null) {
-                    user = userRepository.findByEmail(userEmail)
-                            .orElseThrow(() -> new NotFoundException("User with email " + userEmail + " not found"));
-                }
-
-                if (user != null && payment.getFunction() != null) {
-                    Function function = payment.getFunction();
-
-
-                    // Marcar asientos ocupados
-                    List<String> selectedSeats = payment.getSeats();
-                    if (selectedSeats != null && !selectedSeats.isEmpty()) {
-                        List<Seat> seatsToUpdate = seatRepository.findByFunctionId(function.getId())
-                                .stream()
-                                .filter(seat -> selectedSeats.contains("R" + seat.getSeatRowNumber() + "C" + seat.getSeatColumnNumber()))
-                                .toList();
-
-                        seatsToUpdate.forEach(seat -> seat.setOccupied(true));
-                        seatRepository.saveAll(seatsToUpdate);
-                    }
-
-                    // Armar DTO con unitPrice calculado (clave)
-                    BigDecimal unitPrice = (payment.getQuantity() != null && payment.getQuantity() > 0)
-                            ? payment.getAmount().divide(BigDecimal.valueOf(payment.getQuantity()), 2, java.math.RoundingMode.HALF_UP)
-                            : BigDecimal.ZERO;
-
-                    TicketRequestDTO ticketDTO = new TicketRequestDTO();
-                    ticketDTO.setFunctionId(function.getId());
-                    ticketDTO.setQuantity(payment.getQuantity());
-                    ticketDTO.setUnitPrice(unitPrice);
-                    ticketDTO.setTotalAmount(payment.getAmount());
-                    ticketDTO.setSeats(payment.getSeats());
-
-
-                    // Vincular el ticket creado al Payment sin duplicarlo
-                    //    (buscamos el último ticket de ese user+function)
-                    Ticket ticketEntity = ticketRepository
-                            .findTopByUserIdAndFunctionIdOrderByPurchaseDateTimeDesc(user.getId(), function.getId())
-                            .orElse(null);
-
-                    payment.setTicket(ticketEntity);
-                    paymentRepository.save(payment);
-
-                    System.out.println("Ticket created and linked to payment ID: " + mpPaymentId);
-                }
+            // Notificación duplicada de Mercado Pago sobre un pago ya procesado: no reprocesar.
+            if (payment.getTicket() != null) {
+                return;
             }
+
+            if (payment.getFunction() == null) {
+                System.err.println("Payment " + payment.getId() + " aprobado pero sin función asociada.");
+                return;
+            }
+
+            // Buscar usuario por ID o email
+            User user = null;
+            if (payment.getUserId() != null) {
+                user = userRepository.findById(payment.getUserId()).orElse(null);
+            }
+            if (user == null && userEmail != null) {
+                user = userRepository.findByEmail(userEmail).orElse(null);
+            }
+            if (user == null) {
+                System.err.println("Payment " + payment.getId() + " aprobado pero no se pudo resolver el usuario.");
+                return;
+            }
+
+            Function function = payment.getFunction();
+            List<String> selectedSeats = payment.getSeats();
+
+            List<Seat> seatsToOccupy = seatRepository.findByFunctionId(function.getId()).stream()
+                    .filter(seat -> selectedSeats.contains("R" + seat.getSeatRowNumber() + "C" + seat.getSeatColumnNumber()))
+                    .toList();
+
+            // Puede pasar si otra compra se adelantó a confirmar alguna de estas mismas butacas
+            // mientras este pago estaba en proceso. No se vende dos veces la misma butaca:
+            // se deja constancia para revisión y devolución manual.
+            boolean seatsUnavailable = seatsToOccupy.size() != selectedSeats.size()
+                    || seatsToOccupy.stream().anyMatch(Seat::getOccupied);
+            if (seatsUnavailable) {
+                System.err.println("No se pudo confirmar el pago " + mpPaymentId
+                        + ": una o más butacas ya no están disponibles. Requiere revisión manual.");
+                return;
+            }
+
+            seatsToOccupy.forEach(seat -> seat.setOccupied(true));
+            seatRepository.saveAll(seatsToOccupy);
+
+            // Sumar puntos recién ahora que el pago está confirmado
+            int currentPoints = user.getPoints() == null ? 0 : user.getPoints();
+            user.setPoints(currentPoints + selectedSeats.size() * 10);
+            userRepository.save(user);
+
+            BigDecimal unitPrice = (payment.getQuantity() != null && payment.getQuantity() > 0)
+                    ? payment.getAmount().divide(BigDecimal.valueOf(payment.getQuantity()), 2, java.math.RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+
+            TicketRequestDTO ticketDTO = new TicketRequestDTO();
+            ticketDTO.setFunctionId(function.getId());
+            ticketDTO.setQuantity(payment.getQuantity());
+            ticketDTO.setUnitPrice(unitPrice);
+            ticketDTO.setTotalAmount(payment.getAmount());
+            ticketDTO.setSeats(payment.getSeats());
+
+            Ticket ticket = ticketService.createTicketFromPayment(user, ticketDTO);
+
+            payment.setTicket(ticket);
+            paymentRepository.save(payment);
+
+            System.out.println("Ticket created and linked to payment ID: " + mpPaymentId);
+
         } catch (MPApiException e) {
             System.out.println("Error from Mercado Pago API: " + e.getApiResponse().getContent());
-            e.printStackTrace();
-        } catch (NotFoundException e) {
             e.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-
-    /**
-     * Creates a new {@link Ticket} after a successful payment.
-     * <p>
-     * This method validates the user, retrieves the seats selected for the function,
-     * marks those seats as occupied, and prepares the necessary data to delegate
-     * the ticket creation to the {@link TicketService}.
-     *
-     * @param username The username of the purchaser (may be null if userId is used).
-     * @param userId   The ID of the user who completed the payment.
-     * @param function The function (movie show) for which the ticket is being generated.
-     * @param seats    A list of seat codes in the format "R{row}C{column}" (e.g., "R1C5").
-     * @param quantity The number of seats purchased.
-     * @param mount    The total amount paid for the purchase.
-     * @return The generated {@link Ticket}, or {@code null} if validation fails.
-     * @throws NotFoundException If the user or seats cannot be found.
-     */
-    public Ticket crearTicket(String username, Long userId, Function function, List<String> seats, int quantity, BigDecimal mount) {
-        if (true) {
-
-            // Buscar usuario por ID o email
-            User user = null;
-            if (userId != null) {
-                user = userRepository.findById(userId).orElse(null);
-            }
-            if (user == null) {
-                user = userRepository.findByUsername(user.getUsername())
-                        .orElseThrow(() -> new NotFoundException("User not found"));
-            }
-
-            if (user != null && function != null) {
-
-
-                List<Seat> allSeats = seatRepository.findByFunctionId(function.getId());
-
-                // Buscar los asientos que matchean los códigos enviados (R1C1)
-                List<Seat> seatsToUpdate = allSeats.stream()
-                        .filter(seat -> seats.contains("R" + seat.getSeatRowNumber() + "C" + seat.getSeatColumnNumber()))
-                        .toList();
-
-                if (seatsToUpdate.isEmpty()) {
-                    throw new NotFoundException("None of the seats sent match those available for the performance.");
-                }
-
-                // Marcar ocupados y guardar
-                seatsToUpdate.forEach(seat -> seat.setOccupied(true));
-                seatRepository.saveAll(seatsToUpdate);
-
-                // Convertir a lista de IDs
-                List<String> seatIds = seatsToUpdate.stream()
-                        .map(seat -> seat.getId().toString())
-                        .toList();
-
-                // Armar DTO con unitPrice calculado (clave)
-                BigDecimal unitPrice = (quantity > 0)
-                        ? mount.divide(BigDecimal.valueOf(quantity), 2, java.math.RoundingMode.HALF_UP)
-                        : BigDecimal.ZERO;
-
-                TicketRequestDTO ticketDTO = new TicketRequestDTO();
-                ticketDTO.setFunctionId(function.getId());
-                ticketDTO.setQuantity(quantity);
-                ticketDTO.setUnitPrice(unitPrice);
-                ticketDTO.setTotalAmount(mount);
-                ticketDTO.setSeats(seatIds);
-
-
-                return ticketService.createTicketFromPayment(user, ticketDTO);
-
-            }
-
-        }
-        return null;
     }
 
 
@@ -425,4 +405,3 @@ public class PaymentService {
 
 
 }
-
