@@ -189,6 +189,7 @@ public class StoreOrderService {
                 storeOrder.getTotalAmount(),
                 storeOrder.getTotalAmountInPoints(),
                 storeOrder.getPaidPoints(),
+                storeOrder.getPayment() != null ? storeOrder.getPayment().getPurchaseCode() : null,
                 itemDTOs
         );
     }

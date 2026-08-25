@@ -2,6 +2,7 @@ package com.api.boleteria.mercadopago.controller.paymentStoreControllers;
 
 import com.api.boleteria.mercadopago.dto.paymentStore.PaymentStoreRequestDTO;
 import com.api.boleteria.mercadopago.dto.paymentStore.PaymentStoreResponseDTO;
+import com.api.boleteria.mercadopago.dto.paymentStore.PaymentStorePointsResponseDTO;
 import com.api.boleteria.mercadopago.service.PaymentStoreService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,13 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentStoreController {
 
     private final PaymentStoreService paymentStoreService;
+
+    @PostMapping("/points/{storeOrderId}")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<PaymentStorePointsResponseDTO> payWithPoints(
+            @PathVariable Long storeOrderId) {
+        return ResponseEntity.ok(paymentStoreService.payWithPoints(storeOrderId));
+    }
 
     //-------------------------------CREATE--------------------------------//
 
@@ -38,5 +46,4 @@ public class PaymentStoreController {
 
 
 }
-
 

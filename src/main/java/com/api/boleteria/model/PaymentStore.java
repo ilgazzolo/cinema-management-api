@@ -8,8 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "paymentsProducts")
@@ -45,12 +44,23 @@ public class PaymentStore {
     private LocalDateTime updatedAt;    // Fecha de actualización del pago
     private LocalDateTime date;
 
+    @Column(nullable = false)
+    private Boolean paidPoints = false;
+
+    @Column(unique = true, length = 20)
+    private String purchaseCode;
+
     @OneToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "store_order_id", unique = true, nullable = true)
     private StoreOrder storeOrder;
 
     @PrePersist
     public void prePersist() {
+        if (this.paidPoints == null) this.paidPoints = false;
+        if (this.purchaseCode == null || this.purchaseCode.isBlank()) {
+            this.purchaseCode = "CP-" + UUID.randomUUID().toString()
+                    .replace("-", "").substring(0, 12).toUpperCase();
+        }
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }

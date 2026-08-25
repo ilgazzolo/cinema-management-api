@@ -3,6 +3,7 @@ package com.api.boleteria.mercadopago.service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import com.api.boleteria.mercadopago.dto.PaymentRequestDTO;
 import com.api.boleteria.mercadopago.dto.PaymentResponseDTO;
 import com.api.boleteria.mercadopago.dto.paymentStore.PaymentStoreRequestDTO;
 import com.api.boleteria.mercadopago.dto.paymentStore.PaymentStoreResponseDTO;
+import com.api.boleteria.mercadopago.dto.paymentStore.PaymentStorePointsResponseDTO;
 import com.api.boleteria.model.OrderItems;
 import com.api.boleteria.model.PaymentStore;
 import com.api.boleteria.model.StoreOrder;
@@ -46,6 +48,74 @@ public class PaymentStoreService {
     private final IUserRepository userRepository;
     private final UserService userService;
     private final IStoreOrderRepository storeOrderRepository;
+
+    @Transactional
+    public PaymentStorePointsResponseDTO payWithPoints(Long storeOrderId) {
+        User user = userService.findAuthenticatedUser();
+        StoreOrder order = storeOrderRepository.findById(storeOrderId)
+                .orElseThrow(() -> new NotFoundException(
+                        "StoreOrder no encontrada con ID: " + storeOrderId));
+
+        if (order.getUser() == null || !order.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("La orden no pertenece al usuario autenticado.");
+        }
+        if (!StatusPayment.PENDING.equals(order.getStatus())) {
+            throw new IllegalArgumentException("La orden ya fue procesada.");
+        }
+
+        int requiredPoints = order.getTotalAmountInPoints();
+        int currentPoints = user.getPoints() == null ? 0 : user.getPoints();
+        if (requiredPoints <= 0) {
+            throw new IllegalArgumentException("La orden no tiene un valor valido en puntos.");
+        }
+        if (currentPoints < requiredPoints) {
+            throw new IllegalArgumentException("No tienes puntos suficientes.");
+        }
+
+        PaymentStore payment = paymentStoreRepository.findByStoreOrder_Id(order.getId())
+                .orElseGet(PaymentStore::new);
+        payment.setUserId(user.getId());
+        payment.setUserEmail(user.getEmail());
+        payment.setDate(LocalDateTime.now());
+        payment.setAmount(BigDecimal.valueOf(order.getTotalAmount()));
+        payment.setQuantity(order.getItems().stream().mapToInt(OrderItems::getQuantity).sum());
+        payment.setStatus(StatusPayment.APPROVED);
+        payment.setPaidPoints(true);
+        payment.setPreferenceId(null);
+        payment.setMpPaymentId(null);
+        payment.setStoreOrder(order);
+        ensurePurchaseCode(payment);
+
+        user.setPoints(currentPoints - requiredPoints);
+        userRepository.save(user);
+
+        order.setStatus(StatusPayment.APPROVED);
+        order.setPaidPoints(true);
+        storeOrderRepository.save(order);
+        PaymentStore savedPayment = paymentStoreRepository.save(payment);
+
+        PaymentLog log = new PaymentLog();
+        log.setStatus("STORE_PAID_WITH_POINTS");
+        log.setUserEmail(user.getEmail());
+        log.setTimestamp(LocalDateTime.now());
+        paymentLogRepository.save(log);
+
+        return new PaymentStorePointsResponseDTO(
+                savedPayment.getId(),
+                order.getId(),
+                savedPayment.getStatus().name(),
+                savedPayment.getPaidPoints(),
+                savedPayment.getPurchaseCode(),
+                user.getPoints()
+        );
+    }
+
+    private void ensurePurchaseCode(PaymentStore payment) {
+        if (payment.getPurchaseCode() == null || payment.getPurchaseCode().isBlank()) {
+            payment.setPurchaseCode("CP-" + UUID.randomUUID().toString()
+                    .replace("-", "").substring(0, 12).toUpperCase());
+        }
+    }
 
 
 
@@ -104,6 +174,9 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
 
         payment.setAmount(dto.getTotalAmount());
         payment.setStatus(StatusPayment.PENDING);
+        payment.setPaidPoints(false);
+        ensurePurchaseCode(payment);
+        order.setPaidPoints(false);
         
         // Calculamos la cantidad total sumando las cantidades de cada producto
         int cantidadTotal = dto.getItems().stream()
@@ -149,6 +222,7 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
         // Entorno de prueba: la compra de tienda se acepta automáticamente.
         payment.setStatus(StatusPayment.APPROVED);
         order.setStatus(StatusPayment.APPROVED);
+        order.setPaidPoints(false);
         storeOrderRepository.save(order);
         paymentStoreRepository.save(payment);
 

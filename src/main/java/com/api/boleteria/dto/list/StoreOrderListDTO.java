@@ -10,6 +10,6 @@ public record StoreOrderListDTO(
     Double totalAmount,
     Integer totalAmountInPoints,
     Boolean paidPoints,
+    String purchaseCode,
     List<OrderItemsDetailDTO> items
 ) {}
-
