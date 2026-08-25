@@ -20,22 +20,7 @@ public class PaymentStoreController {
 
     //-------------------------------CREATE--------------------------------//
 
-    /**
-     * Endpoint that creates a new payment preference in Mercado Pago based on client data.
-     * <p>
-     * It validates the incoming request, delegates preference creation to the
-     * {@link PaymentService}, and returns a response with the URL to initiate
-     * the payment in the Mercado Pago sandbox environment.
-     * </p>
-     * <p>
-     * Only users with role {@code CLIENT} are authorized to access this operation.
-     * </p>
-     *
-     * @param dto the {@link PaymentRequestDTO} containing product details,
-     *            quantity, price, and user information for the payment request.
-     * @return a {@link ResponseEntity} containing a {@link PaymentResponseDTO} with
-     *         the generated preference data, or an appropriate error message if creation fails.
-     */
+
 
     @PostMapping("/create")
     @PreAuthorize("hasRole('CLIENT')")
@@ -47,14 +32,11 @@ public class PaymentStoreController {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.internalServerError().body("Error generating payment preference.");
+            return ResponseEntity.internalServerError().body(e.getMessage());
         }
     }
 
 
 }
-
-
-
 
 

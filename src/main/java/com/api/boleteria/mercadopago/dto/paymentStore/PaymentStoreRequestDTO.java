@@ -18,13 +18,12 @@ public class PaymentStoreRequestDTO {
 
     private Long storeOrderId;
 
-    @NotNull(message = "Debe especificar su email.")
     @Email(message = "El email debe tener un formato valido.")
     private String userEmail;       
 
     @NotNull(message = "Debe especificar la cantidad de productos.")
-    @Min(value = 1, message = "Debe comprar al menos un producto.")
-    private List<OrderItemsDetailDTO> items;       
+    @NotEmpty
+    private List<OrderItemsDetailDTO> items;
 
     @NotNull(message = "Debe especificar el monto total.")
     @DecimalMin(value = "0.0", inclusive = false, message = "El monto debe ser positivo.")

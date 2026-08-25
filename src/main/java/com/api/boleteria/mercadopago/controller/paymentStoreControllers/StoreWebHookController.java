@@ -52,9 +52,23 @@ public class StoreWebHookController {
      * @return a {@link RedirectView} pointing to {@code /payment-success} in the frontend.
      */
     @GetMapping("/success")
-    public RedirectView success() {
-        // Redirige al frontend a la página de éxito
-        return new RedirectView("http://localhost:4200/");
+    public RedirectView success(
+            @RequestParam(value = "payment_id", required = false) String paymentId,
+            @RequestParam(value = "collection_id", required = false) String collectionId
+    ) {
+        String mpPaymentId = paymentId != null ? paymentId : collectionId;
+
+        if (mpPaymentId != null) {
+            try {
+                // Mismo respaldo usado por la compra de tickets: confirma el pago
+                // desde el redirect aunque el webhook de desarrollo no haya llegado.
+                paymentStoreService.processWebhookNotification(mpPaymentId);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return new RedirectView("http://localhost:4200/profile?compra=tienda");
     }
 
 

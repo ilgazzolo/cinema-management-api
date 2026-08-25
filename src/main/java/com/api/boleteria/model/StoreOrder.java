@@ -49,4 +49,7 @@ public class StoreOrder {
     @Column(nullable = false)
     private Integer totalAmountInPoints;
 
+    @Column(nullable = false)
+    private  Boolean paidPoints = false;   //(true= pagado con puntos, false= pagado con dinero)
+
 }

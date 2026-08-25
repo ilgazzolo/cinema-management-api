@@ -8,4 +8,5 @@ import com.api.boleteria.model.PaymentStore;
 
 public interface IPaymentStoreRepository extends JpaRepository <PaymentStore, Long> {
     Optional<PaymentStore> findByMpPaymentId(String mpPaymentId);
+    Optional<PaymentStore> findByStoreOrder_Id(Long storeOrderId);
 }

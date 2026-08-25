@@ -168,12 +168,28 @@ public class StoreOrderService {
     }
 
     private StoreOrderListDTO mapToListDTO(StoreOrder storeOrder) {
+        List<OrderItemsDetailDTO> itemDTOs = storeOrder.getItems().stream()
+            .map(item -> new OrderItemsDetailDTO(
+                item.getId(),
+                item.getProduct().getName(),
+                item.getProduct().getImageURL(),
+                item.getQuantity(),
+                item.getHistoricalPrice(),
+                item.getHistoricalUnitCost(),
+                item.getHistoricalPriceInPoints(),
+                item.getSubtotal(),
+                item.getSubtotalInPoints()
+            ))
+            .collect(Collectors.toList());
+
         return new StoreOrderListDTO(
                 storeOrder.getId(),
                 storeOrder.getCreatedAt().toLocalDate().toString(),
                 storeOrder.getCreatedAt().toLocalTime().toString(),
                 storeOrder.getTotalAmount(),
-                storeOrder.getTotalAmountInPoints()
+                storeOrder.getTotalAmountInPoints(),
+                storeOrder.getPaidPoints(),
+                itemDTOs
         );
     }
 

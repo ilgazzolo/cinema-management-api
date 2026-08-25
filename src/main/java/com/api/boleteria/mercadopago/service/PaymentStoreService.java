@@ -71,34 +71,39 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
 
         // Inicializar SDK de Mercado Pago
             MercadoPagoConfig.setAccessToken(System.getenv("MP_ACCESS_TOKEN"));
-            // Guarda URL de ngrok
-            String tunel = System.getenv("MIAPP_NGROKURL");
-            System.out.println("NGROK URL: " + tunel);
-            System.out.println("TOKEN: " + System.getenv("MP_ACCESS_TOKEN"));
+            // Entorno de prueba: URL publica del tunel activo.
+            // Se deja explicita para no depender de que IntelliJ recargue variables.
+            String tunel = "https://shay-nonepisodic-rocky.ngrok-free.dev";
 
 
         // 2. Obtener usuario autenticado
         com.api.boleteria.model.User user = userService.findAuthenticatedUser();
 
-        // 3. Sumar puntos acumulados por la compra de la tienda
-        // Solucionamos la línea que estaba incompleta usando los puntos del DTO
-        int puntosActuales = user.getPoints() == null ? 0 : user.getPoints();
-        user.setPoints(puntosActuales + dto.getTotalAmountInPoints());
-        userRepository.save(user);
+        StoreOrder order = storeOrderRepository.findById(dto.getStoreOrderId())
+                .orElseThrow(() -> new NotFoundException(
+                        "StoreOrder no encontrada con ID: " + dto.getStoreOrderId()));
 
-        // 4. Crear y guardar el registro del Pago Local (adaptado a Tienda)
-        PaymentStore payment = new PaymentStore();
-        payment.setUserId(user.getId());
-        payment.setUserEmail(user.getEmail());
-        payment.setDate(LocalDateTime.now());
-        payment.setAmount(dto.getTotalAmount()); // Monto final calculado en la orden
-        payment.setStatus(StatusPayment.PENDING); // Lo ideal es que empiece PENDING hasta que MP apruebe
+        // Una StoreOrder tiene una relación OneToOne con PaymentStore. Si un intento
+        // anterior ya creó el pago, lo reutilizamos y generamos una preferencia nueva;
+        // así los reintentos no violan la restricción UNIQUE de la base de datos.
+        PaymentStore payment = paymentStoreRepository.findByStoreOrder_Id(order.getId())
+                .orElseGet(() -> {
+                    int puntosActuales = user.getPoints() == null ? 0 : user.getPoints();
+                    user.setPoints(puntosActuales + dto.getTotalAmountInPoints());
+                    userRepository.save(user);
 
-        if (dto.getStoreOrderId() != null) {
-            StoreOrder order = storeOrderRepository.findById(dto.getStoreOrderId())
-                    .orElseThrow(() -> new NotFoundException("StoreOrder no encontrada con ID: " + dto.getStoreOrderId()));
-            payment.setStoreOrder(order);
-        }
+                    PaymentStore newPayment = new PaymentStore();
+                    newPayment.setUserId(user.getId());
+                    newPayment.setUserEmail(user.getEmail());
+                    newPayment.setDate(LocalDateTime.now());
+                    newPayment.setAmount(dto.getTotalAmount());
+                    newPayment.setStatus(StatusPayment.PENDING);
+                    newPayment.setStoreOrder(order);
+                    return newPayment;
+                });
+
+        payment.setAmount(dto.getTotalAmount());
+        payment.setStatus(StatusPayment.PENDING);
         
         // Calculamos la cantidad total sumando las cantidades de cada producto
         int cantidadTotal = dto.getItems().stream()
@@ -141,6 +146,10 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
 
         // 8. Actualizar el pago local con el preferenceId obtenido
         payment.setPreferenceId(preference.getId());
+        // Entorno de prueba: la compra de tienda se acepta automáticamente.
+        payment.setStatus(StatusPayment.APPROVED);
+        order.setStatus(StatusPayment.APPROVED);
+        storeOrderRepository.save(order);
         paymentStoreRepository.save(payment);
 
         // 9. Registrar el log de auditoría
@@ -157,7 +166,8 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
         System.out.println("Status Code: " + apiException.getStatusCode());
         System.out.println("Error Details: " + apiException.getApiResponse().getContent());
         apiException.printStackTrace();
-        throw new RuntimeException("Error generating store payment preference.");
+        throw new RuntimeException("Mercado Pago (" + apiException.getStatusCode() + "): "
+                + apiException.getApiResponse().getContent());
     } catch (Exception e) {
         e.printStackTrace();
         throw new RuntimeException("Error creating store payment preference: " + e.getMessage());
@@ -311,22 +321,6 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
     }
 
 
-    /**
-     * Creates a new {@link StoreOrder} after a successful payment.
-     * <p>
-     * This method validates the user, retrieves the seats selected for the function,
-     * marks those seats as occupied, and prepares the necessary data to delegate
-     * the ticket creation to the {@link TicketService}.
-     *
-     * @param username The username of the purchaser (may be null if userId is used).
-     * @param userId   The ID of the user who completed the payment.
-     * @param function The function (movie show) for which the ticket is being generated.
-     * @param seats    A list of seat codes in the format "R{row}C{column}" (e.g., "R1C5").
-     * @param quantity The number of seats purchased.
-     * @param mount    The total amount paid for the purchase.
-     * @return The generated {@link Ticket}, or {@code null} if validation fails.
-     * @throws NotFoundException If the user or seats cannot be found.
-     */
 
 
     @Transactional
