@@ -57,8 +57,10 @@ public class FunctionController {
      *
      * @return ResponseEntity con una lista de funciones o 204 No Content si no hay funciones.
      */
+    // Sin @PreAuthorize a propósito: la cartelera de funciones es pública (la usa
+    // la home sin login para armar "Próximos estrenos"), igual que /api/movies.
+    // Coincide con SecurityConfig, que ya marca /api/functions/** como permitAll().
     @GetMapping
-   @PreAuthorize("hasRole('ADMIN') or hasRole('CLIENT')")
     public ResponseEntity<List<FunctionDetailDTO>> getAll() {
         List<FunctionDetailDTO> list = functionService.findAll();
         return ResponseEntity.ok(list);

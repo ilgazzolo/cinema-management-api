@@ -57,19 +57,33 @@ public class StoreOrderService {
         // 2. Descontar el stock
         product.setStock(product.getStock() - request.getQuantity());
 
-        // 5. Crear el item y agregarlo al carrito
-        OrderItems newItem = new OrderItems();
-        newItem.setStoreOrder(cart);
-        newItem.setProduct(product);
-        newItem.setQuantity(request.getQuantity());
-        newItem.setHistoricalPrice(product.getUnitPrice()); 
-        newItem.setHistoricalUnitCost(product.getUnitCost());
-        newItem.setHistoricalPriceInPoints(product.getPriceInPoints());
-        newItem.setSubtotal(product.getUnitPrice() * request.getQuantity());
-        newItem.setSubtotalInPoints(product.getPriceInPoints() * request.getQuantity());
+        // 5. Si el producto ya está en el carrito, sumamos la cantidad en vez de
+        // agregar una fila duplicada (antes cada click en "Agregar" creaba un OrderItems
+        // nuevo, aunque ya hubiera uno para el mismo producto).
+        OrderItems existingItem = cart.getItems().stream()
+                .filter(item -> item.getProduct().getId().equals(product.getId()))
+                .findFirst()
+                .orElse(null);
 
-        cart.getItems().add(newItem);
-        
+        if (existingItem != null) {
+            int nuevaCantidad = existingItem.getQuantity() + request.getQuantity();
+            existingItem.setQuantity(nuevaCantidad);
+            existingItem.setSubtotal(product.getUnitPrice() * nuevaCantidad);
+            existingItem.setSubtotalInPoints(product.getPriceInPoints() * nuevaCantidad);
+        } else {
+            OrderItems newItem = new OrderItems();
+            newItem.setStoreOrder(cart);
+            newItem.setProduct(product);
+            newItem.setQuantity(request.getQuantity());
+            newItem.setHistoricalPrice(product.getUnitPrice());
+            newItem.setHistoricalUnitCost(product.getUnitCost());
+            newItem.setHistoricalPriceInPoints(product.getPriceInPoints());
+            newItem.setSubtotal(product.getUnitPrice() * request.getQuantity());
+            newItem.setSubtotalInPoints(product.getPriceInPoints() * request.getQuantity());
+
+            cart.getItems().add(newItem);
+        }
+
         double total = cart.getItems().stream()
             .mapToDouble(item -> item.getQuantity() * item.getHistoricalPrice())
             .sum();
@@ -163,6 +177,49 @@ public class StoreOrderService {
         cart.setTotalAmountInPoints(nuevoTotalPuntos);
 
         // 7. Guardar el estado actualizado del carrito y retornar el DTO fresquito
+        StoreOrder savedCart = orderRepository.save(cart);
+        return mapToDetailDTO(savedCart);
+    }
+
+    /**
+     * Cambia la cantidad de un ítem ya presente en el carrito activo (botones +/- en /cart),
+     * ajustando el stock del producto por la diferencia entre la cantidad vieja y la nueva.
+     */
+    @Transactional
+    public StoreOrderDetailDTO updateItemQuantity(Long itemId, Integer newQuantity) {
+        User user = userService.findAuthenticatedUser();
+
+        StoreOrder cart = orderRepository.findByUserAndStatus(user, StatusPayment.PENDING)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró un carrito activo para este usuario"));
+
+        OrderItems item = cart.getItems().stream()
+                .filter(i -> i.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("El ítem no pertenece a tu carrito de compras"));
+
+        Product product = item.getProduct();
+        int delta = newQuantity - item.getQuantity();
+
+        if (delta > 0) {
+            // Pide más unidades: hay que sacarlas del stock disponible
+            StoreOrderValidator.validateStock(product, delta);
+        }
+        product.setStock(product.getStock() - delta); // delta negativo = repone stock
+
+        item.setQuantity(newQuantity);
+        item.setSubtotal(product.getUnitPrice() * newQuantity);
+        item.setSubtotalInPoints(product.getPriceInPoints() * newQuantity);
+
+        double nuevoTotal = cart.getItems().stream()
+                .mapToDouble(i -> i.getQuantity() * i.getHistoricalPrice())
+                .sum();
+        cart.setTotalAmount(nuevoTotal);
+
+        int nuevoTotalPuntos = cart.getItems().stream()
+                .mapToInt(i -> i.getQuantity() * i.getProduct().getPriceInPoints())
+                .sum();
+        cart.setTotalAmountInPoints(nuevoTotalPuntos);
+
         StoreOrder savedCart = orderRepository.save(cart);
         return mapToDetailDTO(savedCart);
     }

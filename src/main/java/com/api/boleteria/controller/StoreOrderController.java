@@ -7,7 +7,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import com.api.boleteria.dto.detail.StoreOrderDetailDTO;
 import com.api.boleteria.dto.list.StoreOrderListDTO;
 import com.api.boleteria.dto.request.OrderItemsRequestDTO;
+import com.api.boleteria.dto.request.UpdateItemQuantityRequestDTO;
 import com.api.boleteria.service.StoreOrderService;
+import jakarta.validation.Valid;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -49,6 +51,14 @@ public class StoreOrderController {
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<StoreOrderDetailDTO> removeItemFromCart(@PathVariable Long itemId) {
         StoreOrderDetailDTO updatedCart = storeOrderService.removeItemFromCart(itemId);
+        return ResponseEntity.ok(updatedCart);
+    }
+
+    @PutMapping("/cart/items/{itemId}")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<StoreOrderDetailDTO> updateItemQuantity(@PathVariable Long itemId,
+                                                                   @Valid @RequestBody UpdateItemQuantityRequestDTO request) {
+        StoreOrderDetailDTO updatedCart = storeOrderService.updateItemQuantity(itemId, request.getQuantity());
         return ResponseEntity.ok(updatedCart);
     }
 }
