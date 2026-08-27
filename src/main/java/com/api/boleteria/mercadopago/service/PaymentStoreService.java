@@ -143,7 +143,7 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
             MercadoPagoConfig.setAccessToken(System.getenv("MP_ACCESS_TOKEN"));
             // Entorno de prueba: URL publica del tunel activo.
             // Se deja explicita para no depender de que IntelliJ recargue variables.
-            String tunel = "https://shay-nonepisodic-rocky.ngrok-free.dev";
+            String tunel = System.getenv("MIAPP_NGROKURL");
 
 
         // 2. Obtener usuario autenticado
