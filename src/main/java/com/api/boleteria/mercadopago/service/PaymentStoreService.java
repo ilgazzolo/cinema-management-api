@@ -158,9 +158,6 @@ public PaymentStoreResponseDTO createStorePreference(PaymentStoreRequestDTO dto)
         // así los reintentos no violan la restricción UNIQUE de la base de datos.
         PaymentStore payment = paymentStoreRepository.findByStoreOrder_Id(order.getId())
                 .orElseGet(() -> {
-                    int puntosActuales = user.getPoints() == null ? 0 : user.getPoints();
-                    user.setPoints(puntosActuales + dto.getTotalAmountInPoints());
-                    userRepository.save(user);
 
                     PaymentStore newPayment = new PaymentStore();
                     newPayment.setUserId(user.getId());
